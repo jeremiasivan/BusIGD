@@ -13,23 +13,60 @@ if (!file.exists(params$file_metadata)) {
 metadata <- data.table::fread(params$file_metadata)
 
 # check column names
-metadata_cnames <- c("id","dir_fasta","dir_gtf","grouping")
+metadata_cnames <- c("id","dir_fasta","dir_gff","grouping")
 if (!all(metadata_cnames %in% colnames(metadata))) {
     log4r::error(fn_logger, "Error: missing column names for metadata. Exited.")
     knitr::knit_exit()
 }
 
-# create outdir for each grouping
-vct_grouping <- unique(metadata$grouping)
-for (group in vct_grouping) {
-    dir_grouping <- paste0(getwd(), "/", group, "/")
-    if (!dir.exists(dir_grouping)) {
-        dir.create(dir_grouping, recursive=T)
-    }
-}
+# # create outdir for each grouping
+# vct_grouping <- unique(metadata$grouping)
+# for (group in vct_grouping) {
+#     dir_grouping <- paste0(getwd(), "/", group, "/")
+#     if (!dir.exists(dir_grouping)) {
+#         dir.create(dir_grouping, recursive=T)
+#     }
+# }
 ```
 
-```{r wgs}
+```{r wgs-v1}
+# create outdir
+dir_wgs_fasta <- paste0(getwd(), "/wgs/fasta/")
+if (!dir.exists(dir_wgs_fasta)) {
+    dir.create(dir_wgs_fasta, recursive=T)
+}
+
+dir_wgs_gff <- paste0(getwd(), "/wgs/gff/")
+if (!dir.exists(dir_wgs_gff)) {
+    dir.create(dir_wgs_gff, recursive=T)
+}
+
+# copy all alignments to one folder
+for (i in 1:nrow(metadata)) {
+    # copy the fasta alignment
+    fn_fasta_out <- paste0(dir_wgs_fasta, metadata$id[i], ".fa")
+    system(paste("cp", metadata$dir_fasta[i], fn_fasta_out))
+
+    # copy the gff
+    fn_gff_out <- paste0(dir_wgs_gff, metadata$id[i])
+    system(paste("cp", metadata$dir_gff[i], fn_gff_out))
+}
+
+# extract list of groupings
+ls_grouping <- list()
+for (i in unique(metadata$grouping)){
+  vct_subset <- unlist(subset(metadata$id, metadata$grouping == i))
+  ls_grouping <- c(ls_grouping, list(vct_subset))
+}
+
+# run PopGenome
+wgs_data <- readData(dir_wgs_fasta, gffpath=dir_wgs_gff)
+wgs_data <- set.populations(wgs_data, ls_grouping)
+wgs_data <- neutrality.stats(wgs_data)
+wgs_data  <- diversity.stats(wgs_data)
+```
+
+```{r wgs-v2, eval=FALSE}
 # iterate over input alignments
 for (group in vct_grouping) {
     # extract individuals from the respective group
@@ -66,7 +103,7 @@ for (group in vct_grouping) {
 
 ```
 
-```{r busco}
+```{r busco, eval=FALSE}
 # iterate over input alignments
 
 # requires update: iteration over grouping

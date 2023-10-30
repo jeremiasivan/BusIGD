@@ -31,6 +31,8 @@ library(dplyr)
 ```
 
 ```{r, include=FALSE}
+# devtools::install_github("pievos101/PopGenome")
+# install.packages("devtools")
 # install.packages("log4r")
 # install.packages("seqinr")
 
