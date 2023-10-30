@@ -13,21 +13,63 @@ if (!file.exists(params$file_metadata)) {
 metadata <- data.table::fread(params$file_metadata)
 
 # check column names
-if (!all(c("id","dir_fasta","dir_gtf") %in% colnames(metadata))) {
+metadata_cnames <- c("id","dir_fasta","dir_gtf","grouping")
+if (!all(metadata_cnames %in% colnames(metadata))) {
     log4r::error(fn_logger, "Error: missing column names for metadata. Exited.")
     knitr::knit_exit()
+}
+
+# create outdir for each grouping
+vct_grouping <- unique(metadata$grouping)
+for (group in vct_grouping) {
+    dir_grouping <- paste0(getwd(), "/", group, "/")
+    if (!dir.exists(dir_grouping)) {
+        dir.create(dir_grouping, recursive=T)
+    }
 }
 ```
 
 ```{r wgs}
 # iterate over input alignments
-for (i in 1:nrow(metadata)) {
-    # to be continued
+for (group in vct_grouping) {
+    # extract individuals from the respective group
+    df_subset <- subset(metadata, grouping==group)
+    
+    # create outdir for WGS
+    dir_wgs <- paste0(getwd(), "/", group, "/wgs/")
+    if (!dir.exists(dir_wgs)) {
+        dir.create(dir_wgs, recursive=T)
+    }
+
+    # MSA output
+    fn_output_msa <- paste0(dir_wgs, group, ".fa")
+    msa_fasta <- NULL
+
+    # iterate over individuals
+    for (i in 1:nrow(df_subset)) {
+        # read the input FASTA
+        fasta_aln <- seqinr::read.fasta(df_subset$dir_fasta[i])
+        
+        # check the number of individuals
+        len_taxa <- length(fasta_aln)
+        if (len_taxa != 1) {
+            log4r::warn(fn_logger, paste("Warn:", len_taxa, "individuals are found for", df_subset$id[i]))
+        }
+
+        # add individual to the list
+        msa_fasta <- c(msa_fasta, fasta_aln)
+    }
+
+    # save the MSA
+    seqinr::write.fasta(sequences=msa_fasta, names=names(msa_fasta), file.out=fn_output_msa, nbchar=100)
 }
+
 ```
 
 ```{r busco}
 # iterate over input alignments
+
+# requires update: iteration over grouping
 for (i in 1:nrow(metadata)) {
     # create an output directory
     dir_busco_output <- paste0(getwd(), "/busco/")

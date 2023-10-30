@@ -32,6 +32,7 @@ library(dplyr)
 
 ```{r, include=FALSE}
 # install.packages("log4r")
+# install.packages("seqinr")
 
 # store initial system time
 sys_tic <- Sys.time()
