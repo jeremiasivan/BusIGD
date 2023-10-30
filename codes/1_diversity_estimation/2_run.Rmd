@@ -1,0 +1,50 @@
+---
+title: "Genome-wide diversity estimation"
+---
+
+```{r data-preparation}
+# check if file exists
+if (!file.exists(params$file_metadata)) {
+    log4r::error(fn_logger, "Error: metadata is not found. Exited.")
+    knitr::knit_exit()
+}
+
+# open metadata file
+metadata <- data.table::fread(params$file_metadata)
+
+# check column names
+if (!all(c("id","dir_fasta","dir_gtf") %in% colnames(metadata))) {
+    log4r::error(fn_logger, "Error: missing column names for metadata. Exited.")
+    knitr::knit_exit()
+}
+```
+
+```{r wgs}
+# iterate over input alignments
+for (i in 1:nrow(metadata)) {
+    # to be continued
+}
+```
+
+```{r busco}
+# iterate over input alignments
+for (i in 1:nrow(metadata)) {
+    # create an output directory
+    dir_busco_output <- paste0(getwd(), "/busco/")
+    if (!dir.exists(dir_busco_output)) {
+        dir.create(dir_busco_output, recursive=T)
+    }
+
+    # run busco
+    f_run_busco(metadata$dir_fasta[i], dir_busco_output, params$lineage, "genome", params$thread, params$exe_busco)
+}
+```
+
+```{r data-filtering, eval=FALSE}
+for (i in 1:nrow(metadata)) {
+    # open annotation file
+    annotation <- data.table::fread(paste("grep -v '^#'", metadata$dir_gtf[i]))
+
+    # to be continued
+}
+```
