@@ -23,7 +23,8 @@ params:
 
 ## Load required libraries and functions
 ```{r}
-source(paste0(params$codedir, "/1_diversity_estimation/functions.R"))
+source(paste0(params$codedir, "/1_data_preparation/functions.R"))
+source(paste0(params$codedir, "/2_diversity_estimation/functions.R"))
 
 library(data.table)
 library(doSNOW)
