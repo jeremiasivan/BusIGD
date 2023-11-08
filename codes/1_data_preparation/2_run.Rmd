@@ -1,0 +1,81 @@
+---
+title: "Data Preparation"
+---
+
+```{r data-preparation}
+# check if file exists
+if (!file.exists(params$file_metadata)) {
+    log4r::error(fn_logger, "Error: metadata is not found. Exited.")
+    knitr::knit_exit()
+}
+
+# open metadata file
+metadata <- data.table::fread(params$file_metadata)
+
+# check column names
+metadata_cnames <- c("id", "dir_fasta", "refseq_id", "refseq_dir")
+if (!all(metadata_cnames %in% colnames(metadata))) {
+    log4r::error(fn_logger, "Error: missing column names for metadata. Exited.")
+    knitr::knit_exit()
+}
+```
+
+```{r busco-refseq, include=FALSE}
+# extract unique refseqs
+df_uq_refseq <- metadata %>%
+    select(refseq_id, refseq_dir) %>%
+    group_by(refseq_id)
+
+# iterate over reference sequences
+for (i in 1:nrow(df_uq_refseq)) {
+    # create an output directory
+    dir_busco_output <- paste0(getwd(), "/refseq/", df_uq_refseq$refseq_id[i], "/busco/")
+    if (!dir.exists(dir_busco_output)) {
+        dir.create(dir_busco_output, recursive=T)
+    }
+
+    # run busco
+    f_run_busco(df_uq_refseq$refseq_dir[i], dir_busco_output, params$lineage, "genome", params$thread, params$exe_busco)
+    log4r::info(fn_logger, paste0("Files created: BUSCO analyses for ", df_uq_refseq$refseq_id[i], "."))
+}
+```
+
+```{r busco-extract, include=FALSE}
+# iterate over alignments
+for (i in 1:nrow(metadata)) {
+    # open output table from BUSCO
+    fn_refseq_busco <- paste0(getwd(), "/refseq/", metadata$refseq_id[i], "/busco/run_eudicots_odb10/full_table.tsv")
+    df_refseq_busco <- data.table::fread(cmd=paste("grep -v '^#'", fn_refseq_busco), fill=T)
+    colnames(df_refseq_busco) <- c("busco_id", "status", "sequence", "gene_start", "gene_end", "strand", "score", "length")
+
+    # add column for the reference sequence
+    df_refseq_busco$refseq <- lapply(df_refseq_busco$sequence, function(x) {
+        strsplit(x, split=":")[[1]][1]
+    })
+
+    # extract only complete BUSCOs
+    df_refseq_busco_subset <- df_refseq_busco %>%
+        filter(status == "Complete") %>%
+        group_by(busco_id)
+
+    # open FASTA file
+    target_seq <- Biostrings::readDNAStringSet(metadata$dir_fasta[i])
+
+    # iterate over BUSCOs (need to be careful with start and stop)
+    for (j in 1:nrow(df_refseq_busco_subset)) {
+        # extract BUSCO position
+        busco_seq <- target_seq[df_refseq_busco_subset$start[j]:df_refseq_busco_subset$stop[j]]
+
+        # output directory
+        dir_busco_output <- paste0(getwd(), "/targetseq/", metadata$id[i], "/busco/", df_refseq_busco_subset$busco_id[j], "/")
+        if (!dir.exists(dir_busco_output)) {
+            dir.create(dir_busco_output, recursive=T)
+        }
+
+        # save BUSCO sequence
+        seqinr::write.fasta(busco_seq,
+                            file.out=paste0(dir_busco_output, df_refseq_busco_subset$busco_id[j], ".fa"),
+                            names=metadata$id[i])
+    }
+}
+```
